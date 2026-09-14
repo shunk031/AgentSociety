@@ -489,14 +489,25 @@ class ExperimentRunner:
                 "coder": build_client_for_role("coder"),
                 "default": build_client_for_role("default"),
             }
-            # 并发度：所有 env 模块都声明 is_concurrency_safe() 才开并行 ask，否则串行。
-            env_type_map = dict(get_registered_env_modules())
-            all_safe = all(
-                env_type_map[t].is_concurrency_safe()
-                for t in env_module_types
-                if t in env_type_map
-            )
-            max_concurrency = Config.ENV_ACTOR_MAX_CONCURRENCY if all_safe else 1
+            # The actor's concurrency and the router's execution lock protect
+            # different things, and tying both to is_concurrency_safe() makes
+            # the cheap guarantee pay for the expensive one.
+            #
+            # CodeGenRouter._exec_lock_ctx() already serialises _execute_code
+            # whenever any module is not concurrency-safe, and that is the call
+            # that mutates shared env state. Everything else in `ask` -- the
+            # embedding lookup and the 5-25s code-generation round trip -- holds
+            # no shared state and does not need the actor serialised on top.
+            #
+            # Serialising the whole `ask` therefore buys no additional safety
+            # and costs the entire code-generation latency: measured on a
+            # 128-agent run, 1549 ask_env calls took 6210 seconds end to end
+            # while the GPU idled at a median of 3 concurrent requests.
+            #
+            # The actor concurrency now comes from configuration
+            # (AGENTSOCIETY_ENV_ACTOR_MAX_CONCURRENCY, default 8) and the
+            # execution lock keeps following is_concurrency_safe().
+            max_concurrency = Config.ENV_ACTOR_MAX_CONCURRENCY
 
             # Trace wiring: distributed & lock-free now. TraceProxy just carries
             # the output dir; both the env router actor and the agents' own
