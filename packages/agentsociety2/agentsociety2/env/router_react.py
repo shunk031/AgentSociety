@@ -34,11 +34,17 @@ class ReActRouter(RouterBase):
         env_modules: list[EnvBase],
         max_steps: int = 10,
         max_llm_call_retry: int = 10,
+        replay_writer=None,
+        llm_clients_spec=None,
     ):
+        # RouterBase already accepts both; forwarding them is what lets this
+        # router stand in for CodeGenRouter, whose ask() signature it shares.
         super().__init__(
             env_modules=env_modules,
             max_steps=max_steps,
             max_llm_call_retry=max_llm_call_retry,
+            replay_writer=replay_writer,
+            llm_clients_spec=llm_clients_spec,
         )
 
         # 预收集所有工具（包括readonly和非readonly）

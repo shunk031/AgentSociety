@@ -15,6 +15,7 @@ there is no Ray-in-Ray (D8).
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -76,6 +77,7 @@ def get_env_router_actor_class(max_concurrency: int = 1) -> Any:
                     agents use. When ``None``, env LLM calls are untraced.
             """
             from agentsociety2.env.router_codegen import CodeGenRouter
+            from agentsociety2.env.router_react import ReActRouter
             from agentsociety2.registry import get_registered_env_modules
 
             env_type_map = dict(get_registered_env_modules())
@@ -84,12 +86,34 @@ def get_env_router_actor_class(max_concurrency: int = 1) -> Any:
                 env_class = env_type_map[module_type]
                 env_modules.append(env_class(**env_kwargs.get(module_type, {})))
 
-            self._router = CodeGenRouter(
-                env_modules=env_modules,
-                replay_writer=None,
-                llm_clients_spec=llm_clients_spec,
-                **(codegen_kwargs or {}),
-            )
+            # The package ships several routers with the same ask() signature
+            # but only CodeGenRouter was reachable. CodeGen turns every
+            # instruction into generated Python, which is what makes ask_env
+            # expensive; ReAct calls the module functions directly. Selecting
+            # between them is the only way to find out which suits a workload.
+            #
+            # CodeGen stays the default, so an unset variable behaves exactly
+            # as before. Its extra kwargs are only passed to the router that
+            # understands them.
+            router_name = os.getenv("AGENTSOCIETY_ENV_ROUTER", "codegen").lower()
+            if router_name == "react":
+                self._router = ReActRouter(
+                    env_modules=env_modules,
+                    replay_writer=None,
+                    llm_clients_spec=llm_clients_spec,
+                )
+            elif router_name == "codegen":
+                self._router = CodeGenRouter(
+                    env_modules=env_modules,
+                    replay_writer=None,
+                    llm_clients_spec=llm_clients_spec,
+                    **(codegen_kwargs or {}),
+                )
+            else:
+                raise ValueError(
+                    f"AGENTSOCIETY_ENV_ROUTER={router_name!r} is not a router; "
+                    "expected 'codegen' or 'react'"
+                )
             if run_dir is not None:
                 self._router.run_dir = run_dir
                 # 模块状态只存在于本 actor 进程，故在此绑定各模块到
