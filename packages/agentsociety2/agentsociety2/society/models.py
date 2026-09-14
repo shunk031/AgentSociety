@@ -47,6 +47,17 @@ class CodeGenRouterConfig(BaseModel):
     """CodeGenRouter 配置模型"""
 
     final_summary_enabled: bool = Field(True, description="是否启用 ask 最终 summary")
+    template_cache_similarity_threshold: float = Field(
+        0.85,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Cosine similarity an instruction must reach to reuse a cached "
+            "template. The default rejects instruction text that is "
+            "character-for-character identical to a cached entry, so every "
+            "repeat pays for code generation again."
+        ),
+    )
 
 
 class InitConfig(BaseModel):

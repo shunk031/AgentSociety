@@ -516,6 +516,9 @@ class ExperimentRunner:
                 str(self.run_dir.resolve()) if self.run_dir is not None else None,
                 {
                     "final_summary_enabled": config.codegen_router.final_summary_enabled,
+                    "template_cache_similarity_threshold": (
+                        config.codegen_router.template_cache_similarity_threshold
+                    ),
                 },
                 llm_clients_spec,
                 replay_proxy,
