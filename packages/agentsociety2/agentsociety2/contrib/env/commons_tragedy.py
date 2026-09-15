@@ -45,6 +45,16 @@ class GetRoundHistoryResponse(BaseModel):
 class CommonsTragedyEnv(EnvBase):
     """Environment for Tragedy of the Commons game based on AgentSociety2"""
 
+    @classmethod
+    def is_concurrency_safe(cls) -> bool:
+        # Every tool that mutates the shared pool takes the module's own
+        # asyncio.Lock, and no tool body awaits anything at all: once a tool
+        # starts it runs to completion without yielding, so the env Ray actor
+        # (a single event loop, since `ask` is async) cannot interleave two of
+        # them. That is a stronger guarantee than MobilitySpace makes, and it
+        # holds for the shared fields as much as the per-agent ones.
+        return True
+
     _env_state_columns: ClassVar[list[ColumnDef]] = [
         ColumnDef("round_number", "INTEGER", nullable=False),
         ColumnDef("current_pool_resources", "INTEGER", nullable=False),
