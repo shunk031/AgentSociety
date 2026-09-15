@@ -115,6 +115,16 @@ class SocialMediaSpace(EnvBase):
       此时仅允许这些 id 作为 user_id 使用；init() 时会为列表中尚未在 persons 数据里的 id 创建对应用户（username=name）。
     """
 
+    @classmethod
+    def is_concurrency_safe(cls) -> bool:
+        # All eight mutating tools hold the module's own asyncio.Lock, and no
+        # tool body awaits anything, so a tool runs to completion without
+        # yielding. EnvRouterActor.ask is async, so Ray runs the actor as one
+        # event loop and cannot interleave two tool bodies. The read-only tools
+        # mutate nothing beyond _ensure_person_exists, a synchronous helper
+        # writing the caller's own key.
+        return True
+
     # 声明式 per-person per-step 快照
     _agent_state_columns: ClassVar[list[ColumnDef]] = [
         ColumnDef(
