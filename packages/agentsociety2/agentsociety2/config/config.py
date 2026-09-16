@@ -254,6 +254,17 @@ class Config:
         "AGENTSOCIETY_ENV_ACTOR_MAX_CONCURRENCY", 8
     )
 
+    # CodeGenRouter template cache. The lookup scores an instruction against
+    # cached ones with cosine similarity over embeddings, and 0.85 is the value
+    # the router's own default carries. Measured on one deployment, the highest
+    # score any two real instructions reached was 0.68, so the cache never hit
+    # once across two 128-agent runs and every ask_env regenerated its code.
+    # Identical strings do score 1.0, so the embeddings are sound and the
+    # threshold is the lever.
+    TEMPLATE_CACHE_SIMILARITY_THRESHOLD: float = float(
+        os.getenv("AGENTSOCIETY_TEMPLATE_CACHE_SIMILARITY_THRESHOLD", "0.85")
+    )
+
     # Adaptive concurrency control for LLM requests (per-worker AIMD).
     LLM_LATENCY_DEGRADE_FACTOR: float = float(
         os.getenv("AGENTSOCIETY_LLM_LATENCY_DEGRADE_FACTOR", "4.0")
