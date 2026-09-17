@@ -1481,7 +1481,7 @@ class CodeGenRouter(RouterBase):
         code_format: str = "raw_code",
         # Template cache configuration
         template_cache_enabled: bool = True,  # 是否启用模板缓存
-        template_cache_similarity_threshold: float = 0.85,  # 缓存相似度阈值
+        template_cache_similarity_threshold: Optional[float] = None,  # 缓存相似度阈值
         template_cache_max_size: int = 1000,  # 单 env 类型最大缓存条目数
         template_cache_dir: Optional[
             str
@@ -1519,7 +1519,14 @@ class CodeGenRouter(RouterBase):
         # ==================== Template缓存相关 ====================
         self._final_summary_enabled = final_summary_enabled
         self._template_cache_enabled = template_cache_enabled
-        self._template_cache_similarity_threshold = template_cache_similarity_threshold
+        # None means "take the deployment's value", so the environment variable
+        # reaches callers that never pass the argument -- which is every caller
+        # on the CLI path.
+        self._template_cache_similarity_threshold = (
+            Config.TEMPLATE_CACHE_SIMILARITY_THRESHOLD
+            if template_cache_similarity_threshold is None
+            else template_cache_similarity_threshold
+        )
         self._template_cache_max_size = template_cache_max_size
 
         # Env class type 指纹，用于缓存隔离

@@ -315,7 +315,25 @@ def _build_router(base_url: str, api_key: str, model: str) -> Any:
             },
         }
     ]
-    return Router(model_list=model_list, cache_responses=True, num_retries=0)
+    # disable_cooldowns: litellm marks a deployment unhealthy after enough
+    # failures and stops routing to it. That protects a caller who has somewhere
+    # else to go. This model_list has exactly one entry and no fallbacks, so
+    # cooling it down routes nowhere -- every later request fails without ever
+    # reaching a backend that was never unhealthy.
+    #
+    # A caller-set timeout is the trigger. litellm raises it as a 408, and
+    # BerriAI/litellm#41223 records that Router.deployment_callback_on_failure
+    # counts those toward the failure budget without checking whether the
+    # timeout came from the caller. Saturating a backend on purpose means
+    # requests wait, some of them past whatever cap is set, so the budget is
+    # spent by normal operation: one run logged 1,187 timeouts and then went
+    # silent for two hours while the server sat idle with nothing to serve.
+    return Router(
+        model_list=model_list,
+        cache_responses=True,
+        num_retries=0,
+        disable_cooldowns=True,
+    )
 
 
 def merge_token_stats(*deltas: dict[str, dict[str, int]]) -> dict[str, dict[str, int]]:
